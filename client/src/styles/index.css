@@ -1,0 +1,268 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design Tokens & CSS Variables (Clean Light Theme) */
+:root {
+  --color-bg: #F7F8FA;
+  --color-surface: #FFFFFF;
+  --color-surface-hover: #F1F3F6;
+  --color-border: #E3E7EC;
+  --color-border-hover: #CFD6DE;
+  --color-text: #1A2126;
+  --color-muted: #6B7684;
+  --color-divider: #EDEFF2;
+  --color-accent: #3457D5;
+  --color-accent-hover: #2B48B8;
+  --color-accent-tint: rgba(52, 87, 213, 0.08);
+  --color-risk-low: #2E9E6B;
+  --color-risk-low-tint: rgba(46, 158, 107, 0.1);
+  --color-risk-medium: #D48806;
+  --color-risk-medium-tint: rgba(212, 136, 6, 0.1);
+  --color-risk-high: #D9364A;
+  --color-risk-high-tint: rgba(217, 54, 74, 0.1);
+}
+
+/* Base Body Reset */
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Leaflet Map: Clean Light Greyscale Basemap */
+.light-tiles {
+  filter: grayscale(0.85) contrast(1.05) brightness(1.02);
+}
+
+.leaflet-container {
+  background-color: var(--color-bg) !important;
+  font-family: 'Inter', sans-serif;
+  border-radius: 4px;
+}
+
+.leaflet-popup-content-wrapper {
+  background-color: var(--color-surface) !important;
+  color: var(--color-text) !important;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(16, 24, 32, 0.08);
+}
+
+.leaflet-popup-tip {
+  background-color: var(--color-surface) !important;
+}
+
+/* Minimal Scrollbars */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-hover);
+}
+
+/* Console Panel Utility: 1px border, surface background, soft subtle elevation */
+.console-panel {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(16, 24, 32, 0.06);
+}
+
+/* Console Button Base */
+.console-btn {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 120ms ease;
+  cursor: pointer;
+  outline: none;
+  box-shadow: none;
+}
+
+.console-btn:hover {
+  border-color: var(--color-border-hover);
+  background-color: var(--color-surface-hover);
+  color: #1A2126;
+}
+
+/* Primary Button (Solid #3457D5 background, white text) */
+.console-btn-primary {
+  background-color: var(--color-accent) !important;
+  border: 1px solid var(--color-accent) !important;
+  color: #FFFFFF !important;
+}
+.console-btn-primary:hover {
+  background-color: var(--color-accent-hover) !important;
+  border-color: var(--color-accent-hover) !important;
+  color: #FFFFFF !important;
+}
+
+/* Active / Selected Button State */
+.console-btn-active {
+  border-color: var(--color-accent) !important;
+  background-color: var(--color-accent-tint) !important;
+  color: var(--color-accent) !important;
+}
+
+/* Demo / Test Control Button (Amber Tint Outline on White) */
+.console-btn-test {
+  border: 1px solid rgba(212, 136, 6, 0.4);
+  background-color: #FFFFFF;
+  color: var(--color-risk-medium);
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 120ms ease;
+  cursor: pointer;
+  outline: none;
+}
+
+.console-btn-test:hover {
+  border-color: var(--color-risk-medium);
+  background-color: var(--color-risk-medium-tint);
+  color: #B57405;
+}
+
+/* Standardized Risk Badges: Low Opacity Tint, Solid Text & Border (Never solid fill at rest) */
+.badge-risk-high {
+  background-color: var(--color-risk-high-tint);
+  color: var(--color-risk-high);
+  border: 1px solid var(--color-risk-high);
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.badge-risk-medium {
+  background-color: var(--color-risk-medium-tint);
+  color: var(--color-risk-medium);
+  border: 1px solid rgba(212, 136, 6, 0.4);
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 6px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.badge-risk-low,
+.badge-normal {
+  background-color: var(--color-risk-low-tint);
+  color: var(--color-risk-low);
+  border: 1px solid rgba(46, 158, 107, 0.3);
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 6px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.badge-neutral {
+  background-color: #F1F3F6;
+  color: var(--color-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 6px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Numeric Readout Monospace Class (strictly for sensor numbers only, semi-bold for strong contrast on light) */
+.font-sensor-num {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* Deliberate subtle pulse reserved specifically for high alert marker */
+@keyframes console-alert-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(217, 54, 74, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(217, 54, 74, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(217, 54, 74, 0);
+  }
+}
+
+.alert-pulse-node {
+  animation: console-alert-pulse 2s infinite;
+}
+
+/* Animated Radar Wave for Map Markers */
+@keyframes radar-wave-anim {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+
+.radar-wave {
+  animation: radar-wave-anim 2.2s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+}
+
+/* Rotating 360° Tactical Radar Scanner */
+@keyframes radar-sweep-360 {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.radar-scanner {
+  background: conic-gradient(from 0deg, rgba(52, 87, 213, 0.35) 0deg, rgba(52, 87, 213, 0.04) 55deg, transparent 60deg, transparent 360deg);
+  border: 1px solid rgba(52, 87, 213, 0.20);
+  animation: radar-sweep-360 4s linear infinite;
+}
+
+/* Animated LoRa RF Wireless Transmission Pulse */
+@keyframes lora-dash-anim {
+  0% {
+    stroke-dashoffset: 28;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.lora-rf-link {
+  animation: lora-dash-anim 1.2s linear infinite;
+}
+

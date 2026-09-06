@@ -1,0 +1,18 @@
+{
+  "name": "beacon-environmental-intelligence",
+  "version": "1.0.0",
+  "description": "AI-Powered Environmental Monitoring Network for Disaster Management (SIH26178 / Qualcomm)",
+  "scripts": {
+    "start": "node server/src/index.js",
+    "server": "node server/src/index.js",
+    "client": "cd client && npm start",
+    "dev": "concurrently --kill-others \"npm run server\" \"npm run client\"",
+    "build:client": "cd client && npm run build",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "author": "BEACON Team",
+  "license": "MIT"
+}
