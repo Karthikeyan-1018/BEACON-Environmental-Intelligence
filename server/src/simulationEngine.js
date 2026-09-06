@@ -13,6 +13,7 @@ class SimulationEngine {
     this.isPaused = false;
     this.cascadeStep = 0;
     this.activeCascade = null;
+    this.manualLock = []; // node_ids allowed to escalate while a manual scenario is active
     this.initializeNodes();
     this.initializeAnalytics();
     this.weather = this.seedWeather();
@@ -117,12 +118,20 @@ class SimulationEngine {
     this.updateWeather();
     this.nodes.forEach((node) => {
       const meta = HAZARD_METADATA[node.hazard_type];
+      const locked = this.manualLock.length > 0 && !this.manualLock.includes(node.node_id);
       node.cyclesInState++;
+
+      // A manually-triggered scenario holds every unrelated cluster at nominal:
+      // unrelated nodes recover to NORMAL and cannot randomly brew or alert.
+      if (locked && node.state !== 'NORMAL') {
+        node.state = 'NORMAL';
+        node.cyclesInState = 0;
+      }
 
       // Evolving state machine transitions
       if (node.state === 'NORMAL') {
         // Small random chance of drifting into brewing event
-        if (Math.random() < 0.05) {
+        if (!locked && Math.random() < 0.05) {
           node.state = 'BREWING';
           node.cyclesInState = 0;
         }
@@ -294,6 +303,8 @@ class SimulationEngine {
   triggerHazardScenario(hazardType) {
     const targetNodes = Array.from(this.nodes.values()).filter(n => n.hazard_type === hazardType);
     if (targetNodes.length > 0) {
+      // Focus lock: only this hazard cluster may escalate until an explicit reset.
+      this.manualLock = targetNodes.map(n => n.node_id);
       targetNodes.forEach((node, idx) => {
         node.state = idx === 0 ? 'CRITICAL' : 'BREWING';
         node.cyclesInState = 2;
@@ -305,6 +316,7 @@ class SimulationEngine {
   }
 
   resetAllNodes() {
+    this.manualLock = []; // release focus lock, resume natural multi-hazard drift
     this.nodes.forEach((node) => {
       node.state = 'NORMAL';
       node.cyclesInState = 0;
@@ -332,6 +344,7 @@ class SimulationEngine {
 
     if (scenarioName === 'monsoon_deluge') {
       // Step 1: Upstream Bhavani River surges to peak
+      this.manualLock = ['REG-FL-01', 'REG-FL-02', 'REG-LS-01'];
       const upstream1 = this.nodes.get('REG-FL-01');
       const upstream2 = this.nodes.get('REG-FL-02');
       if (upstream1) { upstream1.state = 'CRITICAL'; upstream1.cyclesInState = 1; }
@@ -341,6 +354,7 @@ class SimulationEngine {
       if (lsNode) { lsNode.state = 'BREWING'; lsNode.cyclesInState = 1; }
     } else if (scenarioName === 'wildfire_spread') {
       // Step 1: Nilgiris forest fire reaches peak
+      this.manualLock = ['REG-FF-01', 'REG-FF-02', 'REG-AP-01'];
       const fire1 = this.nodes.get('REG-FF-01');
       const fire2 = this.nodes.get('REG-FF-02');
       if (fire1) { fire1.state = 'CRITICAL'; fire1.cyclesInState = 1; }
@@ -349,6 +363,7 @@ class SimulationEngine {
       const air1 = this.nodes.get('REG-AP-01');
       if (air1) { air1.state = 'BREWING'; air1.cyclesInState = 1; }
     } else if (scenarioName === 'chemical_plume') {
+      this.manualLock = ['REG-CH-01', 'REG-AP-02'];
       const chemNode = this.nodes.get('REG-CH-01');
       const airNode = this.nodes.get('REG-AP-02');
       if (chemNode) { chemNode.state = 'CRITICAL'; chemNode.cyclesInState = 1; }

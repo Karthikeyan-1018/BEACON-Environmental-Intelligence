@@ -199,6 +199,7 @@ function ToastCard({ toast, onClose }) {
 export default function NotificationSimulator({ alerts = [] }) {
   const [toasts, setToasts] = useState([]);
   const [enabled, setEnabled] = useState(true);
+  const [dockOpen, setDockOpen] = useState(false);
   const seenRef = useRef(new Set());
   const seqRef = useRef(0);
   const enabledRef = useRef(true);
@@ -243,9 +244,31 @@ export default function NotificationSimulator({ alerts = [] }) {
 
   return (
     <>
-      {/* Fixed toggle dock on the left edge of the screen */}
-      <div className="fixed left-0 top-1/2 -translate-y-1/2 z-[1300] pointer-events-auto">
-        <div className="flex flex-col items-center gap-2 bg-[#0B0F14]/90 border border-l-0 border-[#3457D5]/40 rounded-l-none rounded-r-[14px] px-2 py-3 text-white shadow-[0_6px_20px_rgba(16,24,32,0.35)]">
+      {/* Auto-hiding toggle dock on the left edge: reach to reveal, slide back when idle */}
+      <div
+        className="fixed left-0 top-0 h-screen w-6 z-[1300]"
+        onMouseEnter={() => setDockOpen(true)}
+        onMouseLeave={() => setDockOpen(false)}
+      >
+        {/* Invisible hot-zone strip along the whole left edge */}
+        <div className="absolute inset-0 w-6" />
+
+        {/* Subtle idle hint indicator (hidden while open) */}
+        {!dockOpen && (
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none">
+            <div className="h-10 w-[5px] rounded-r-full bg-[#3457D5]/35 animate-pulse" />
+          </div>
+        )}
+
+        {/* Sliding dock pill */}
+        <div
+          className="absolute left-0 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2 bg-[#0B0F14]/95 border border-l-0 border-[#3457D5]/40 rounded-l-none rounded-r-[14px] px-2 py-3 text-white shadow-[0_6px_20px_rgba(16,24,32,0.35)] transition-transform duration-300 ease-out"
+          style={{
+            transform: dockOpen
+              ? 'translateX(0px)'
+              : 'translateX(-100%)'
+          }}
+        >
           <Radio className="w-4 h-4 text-[#7DE3B0]" />
           <span
             className="text-[8px] font-bold tracking-[0.16em] text-white/70 uppercase"
@@ -255,6 +278,8 @@ export default function NotificationSimulator({ alerts = [] }) {
           </span>
           <button
             onClick={handleToggle}
+            onFocus={() => setDockOpen(true)}
+            onBlur={() => setDockOpen(false)}
             className={`relative w-[18px] h-8 rounded-full transition-colors ${
               enabled ? 'bg-[#2E9E6B]' : 'bg-[#6B7684]/50'
             }`}

@@ -41,6 +41,10 @@ class SerialManager {
       humidity: 64.0,   // %
       smoke: 110,       // ppm (MQ-2)
       rainfall: 3.5,    // mm/h
+      rssi: -74,        // dBm
+      snr: 9.4,         // dB
+      packet_id: 1042,
+      freq: 433.175,    // MHz
       risk_level: 'low',
       confidence: 0.94,
       timestamp: new Date().toISOString()
@@ -206,6 +210,10 @@ class SerialManager {
     d.smoke = Math.max(50, Math.round(d.smoke + (Math.random() - 0.5) * 6));
     d.rainfall = Math.max(0, +(d.rainfall + (Math.random() - 0.48) * 0.5).toFixed(1));
     d.water_level = Math.max(5, +(d.water_level + (Math.random() - 0.48) * 0.6).toFixed(1));
+    d.rssi = Math.max(-95, Math.min(-60, Math.round(d.rssi + (Math.random() - 0.5) * 2)));
+    d.snr = +(d.snr + (Math.random() - 0.5) * 0.2).toFixed(1);
+    d.packet_id += 1;
+    d.freq = 433.175;
 
     // Calculate risk
     let risk = 'low';
@@ -237,6 +245,11 @@ class SerialManager {
       this.currentData.temp = 51.4;
       this.currentData.risk_level = 'high';
       this.currentData.confidence = 0.98;
+    } else if (hazardType === 'storm') {
+      this.currentData.rainfall = 72.0;
+      this.currentData.water_level = 65.0;
+      this.currentData.risk_level = 'high';
+      this.currentData.confidence = 0.96;
     } else if (hazardType === 'nominal') {
       this.currentData.water_level = 21.0;
       this.currentData.rainfall = 2.0;
@@ -277,6 +290,10 @@ class SerialManager {
         humidity: Number(parsed.humidity || 0),
         smoke: Number(parsed.smoke || 0),
         rainfall: Number(parsed.rainfall || 0),
+        rssi: Number(parsed.rssi !== undefined ? parsed.rssi : -74),
+        snr: Number(parsed.snr !== undefined ? parsed.snr : 9.4),
+        packet_id: Number(parsed.packet_id !== undefined ? parsed.packet_id : 1042),
+        freq: Number(parsed.freq !== undefined ? parsed.freq : 433.175),
         risk_level: parsed.risk_level || 'low',
         confidence: Number(parsed.confidence || 0.9),
         timestamp: parsed.timestamp || new Date().toISOString()

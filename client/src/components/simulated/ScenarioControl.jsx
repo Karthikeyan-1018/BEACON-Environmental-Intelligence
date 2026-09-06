@@ -18,15 +18,15 @@ export default function ScenarioControl() {
   const trigger = (type, label) => {
     setActiveScenario(type);
     socket.emit('client-trigger-scenario', type);
-    setFeedback(`Active scenario: ${label}`);
-    setTimeout(() => setFeedback(''), 4000);
+    setFeedback(`Active scenario: ${label} — other hazards held nominal until reset`);
+    setTimeout(() => setFeedback(''), 6000);
   };
 
   const resetAll = () => {
     setActiveScenario(null);
     socket.emit('client-reset-scenario');
-    setFeedback('All 21 nodes restored to nominal baseline');
-    setTimeout(() => setFeedback(''), 4000);
+    setFeedback('All 21 nodes restored to nominal baseline — auto-drift resumed');
+    setTimeout(() => setFeedback(''), 6000);
   };
 
   return (

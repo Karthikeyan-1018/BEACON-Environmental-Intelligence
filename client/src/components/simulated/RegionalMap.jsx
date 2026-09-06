@@ -200,7 +200,7 @@ export default function RegionalMap({
         const newMarker = L.marker([node.lat, node.lon], { icon: customIcon });
         newMarker.bindPopup(popupContent);
         newMarker.on('click', () => {
-          onSelectNode(node);
+          onSelectNode(node.node_id);
         });
         markersGroup.addLayer(newMarker);
         markersMap.set(node.node_id, newMarker);

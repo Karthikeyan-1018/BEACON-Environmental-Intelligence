@@ -4,17 +4,30 @@ class AudioAlertService {
     this.audioCtx = null;
     this.isMuted = true; // Default muted for pleasant initial UX
     this.lastChimeTime = 0;
+    this.lastBeepTime = 0;
   }
 
   init() {
-    if (!this.audioCtx && typeof window !== 'undefined') {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (AudioContext) {
-        this.audioCtx = new AudioContext();
+    // Must never throw: called from tick streams outside an explicit user gesture.
+    try {
+      if (this.audioCtx) {
+        if (this.audioCtx.state === 'suspended') {
+          this.audioCtx.resume().catch(() => {});
+        }
+        return;
       }
-    }
-    if (this.audioCtx && this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
+      if (typeof window !== 'undefined') {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          this.audioCtx = new AudioContext();
+        }
+      }
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
+    } catch (e) {
+      console.warn('Audio init error:', e);
+      this.audioCtx = null;
     }
   }
 
@@ -53,6 +66,37 @@ class AudioAlertService {
       osc.stop(now + 0.15);
     } catch (e) {
       console.warn('Audio alert error:', e);
+    }
+  }
+
+  playBuzzerBeep() {
+    // Hardware-mirror beep: shares the single AudioContext (no per-tick contexts).
+    const nowMs = Date.now();
+    if (nowMs - this.lastBeepTime < 600) return; // throttle
+    this.lastBeepTime = nowMs;
+
+    this.init();
+    if (!this.audioCtx || this.audioCtx.state === 'closed') return;
+
+    try {
+      const now = this.audioCtx.currentTime;
+      const osc = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.linearRampToValueAtTime(740, now + 0.18);
+
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+      osc.connect(gain);
+      gain.connect(this.audioCtx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.22);
+    } catch (e) {
+      console.warn('Buzzer beep error:', e);
     }
   }
 

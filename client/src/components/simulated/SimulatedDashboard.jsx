@@ -13,17 +13,21 @@ import NotificationSimulator from './NotificationSimulator';
 import NodeHealthPanel from './NodeHealthPanel';
 import WeatherContextBar from './WeatherContextBar';
 
-export default function SimulatedDashboard({ simData }) {
+export default function SimulatedDashboard({ simData, playback = {} }) {
   const [selectedHazard, setSelectedHazard] = useState('all');
   const [selectedSeverity, setSelectedSeverity] = useState('all');
   const [selectedZone, setSelectedZone] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedNode, setSelectedNode] = useState(null);
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
 
   const nodes = simData?.nodes || [];
   const stats = simData?.stats || {};
   const alerts = simData?.alerts || [];
   const aiAdvisory = simData?.aiAdvisory || {};
+
+  // Resolve the selected node live so the detail modal tracks the freshest
+  // snapshot instead of freezing at the moment the marker was clicked.
+  const selectedNode = nodes.find((n) => n.node_id === selectedNodeId) || null;
 
   // Extract unique zones
   const uniqueZones = useMemo(() => {
@@ -58,10 +62,7 @@ export default function SimulatedDashboard({ simData }) {
   }, [nodes, selectedHazard, selectedSeverity, selectedZone, searchTerm]);
 
   const handleSelectNodeById = (nodeId) => {
-    const found = nodes.find((n) => n.node_id === nodeId);
-    if (found) {
-      setSelectedNode(found);
-    }
+    setSelectedNodeId(nodeId);
   };
 
   return (
@@ -74,7 +75,7 @@ export default function SimulatedDashboard({ simData }) {
       <WeatherContextBar weather={stats?.weather || {}} nodes={nodes} />
 
       {/* 3. Timeline Playback & Speed Controller */}
-      <SimulationPlaybackBar stats={stats} />
+      <SimulationPlaybackBar stats={stats} playback={playback} />
 
       {/* 4. Top Metric Statistics Strip */}
       <RegionalStatsBar stats={stats} />
@@ -112,7 +113,7 @@ export default function SimulatedDashboard({ simData }) {
           <RegionalMap
             nodes={filteredNodes}
             selectedNode={selectedNode}
-            onSelectNode={setSelectedNode}
+            onSelectNode={setSelectedNodeId}
             weather={stats?.weather || {}}
           />
         </div>
@@ -131,7 +132,7 @@ export default function SimulatedDashboard({ simData }) {
       {selectedNode && (
         <NodeDetailModal
           node={selectedNode}
-          onClose={() => setSelectedNode(null)}
+          onClose={() => setSelectedNodeId(null)}
         />
       )}
 

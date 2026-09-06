@@ -1,45 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { Volume2, VolumeX, Cpu } from 'lucide-react';
+import audioAlert from '../../utils/audioAlert';
 
 export default function HardwareMirror({ hardwareState, telemetry }) {
   const [audioEnabled, setAudioEnabled] = useState(false);
   const isBuzzerActive = !!hardwareState?.buzzer;
   const ledColor = hardwareState?.led || 'GREEN';
 
-  // Subtle web audio oscillator beep when buzzer is active and user enabled audio
+  const handleToggleAudio = () => {
+    setAudioEnabled((prev) => {
+      const next = !prev;
+      // Start/resume the shared AudioContext inside the click gesture (autoplay policy).
+      if (next) {
+        audioAlert.init();
+      }
+      return next;
+    });
+  };
+
+  // Beep when buzzer is active and audio is enabled (throttled, shared context).
   useEffect(() => {
     if (!isBuzzerActive || !audioEnabled) return;
-
-    let ctx = null;
-    let osc = null;
-    try {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-      osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      gain.gain.setValueAtTime(0.05, ctx.currentTime);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-
-      const timer = setTimeout(() => {
-        if (osc) osc.stop();
-        if (ctx) ctx.close();
-      }, 400);
-
-      return () => {
-        clearTimeout(timer);
-        try {
-          if (osc) osc.stop();
-          if (ctx) ctx.close();
-        } catch (e) {}
-      };
-    } catch (e) {
-      console.warn('Audio error:', e);
-    }
+    audioAlert.playBuzzerBeep();
   }, [isBuzzerActive, audioEnabled, telemetry?.timestamp]);
 
   return (
@@ -54,7 +36,7 @@ export default function HardwareMirror({ hardwareState, telemetry }) {
           </div>
           {/* Distinct Demo/Test Button: Amber outline on white */}
           <button
-            onClick={() => setAudioEnabled(!audioEnabled)}
+            onClick={handleToggleAudio}
             className="console-btn-test"
             title="Toggle audio alert chime for hardware buzzer"
           >

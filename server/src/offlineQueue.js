@@ -81,7 +81,17 @@ class OfflineQueue {
       isOnline: this.isOnline,
       queuedCount: this.queuedPackets.length,
       isFlushing: this.isFlushing,
-      lastFlushedCount: this.lastFlushedCount
+      lastFlushedCount: this.lastFlushedCount,
+      maxCapacity: 200,
+      flashMemoryKb: +(this.queuedPackets.length * 0.128).toFixed(2),
+      packets: this.queuedPackets.slice(-10).map((p) => ({
+        seq: p.packet_id !== undefined ? p.packet_id : p.seq,
+        time: new Date(p.queuedAt || p.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        water_level: p.water_level,
+        temp: p.temp,
+        smoke: p.smoke,
+        risk: p.risk_level
+      }))
     };
   }
 

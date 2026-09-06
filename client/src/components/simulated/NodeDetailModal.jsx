@@ -18,6 +18,7 @@ function keyLabel(key) {
 }
 
 function bandOf(ev) {
+  if (!ev) return 'normal';
   if (ev.inverted) {
     if (ev.value <= ev.critical) return 'critical';
     if (ev.value <= ev.warning) return 'warning';

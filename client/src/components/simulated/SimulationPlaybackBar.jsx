@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Play, 
   Pause, 
@@ -11,10 +11,19 @@ import {
 } from 'lucide-react';
 import socket from '../../socket';
 
-export default function SimulationPlaybackBar({ stats, onReset }) {
+export default function SimulationPlaybackBar({ stats, playback, onReset }) {
   const [speed, setSpeed] = useState(stats?.speed || 1);
   const [isPaused, setIsPaused] = useState(!!stats?.isPaused);
   const [activeCascade, setActiveCascade] = useState(stats?.activeCascade || null);
+  const [feedback, setFeedback] = useState('');
+
+  // Reflect server-pushed playback status (backend or cross-client control changes).
+  useEffect(() => {
+    if (!playback) return;
+    if (typeof playback.speed === 'number') setSpeed(playback.speed);
+    if (typeof playback.isPaused === 'boolean') setIsPaused(playback.isPaused);
+    setActiveCascade(playback.activeCascade || null);
+  }, [playback]);
 
   const handleTogglePause = () => {
     setIsPaused(!isPaused);
@@ -33,11 +42,20 @@ export default function SimulationPlaybackBar({ stats, onReset }) {
   const handleTriggerCascade = (scenarioName) => {
     setActiveCascade(scenarioName);
     socket.emit('client-sim-cascade', scenarioName);
+    const labels = {
+      monsoon_deluge: 'Monsoon Deluge',
+      wildfire_spread: 'Wildfire Smoke Drift',
+      chemical_plume: 'Chemical Plume'
+    };
+    setFeedback(`Cascade active: ${labels[scenarioName] || scenarioName} — other hazards held nominal until reset`);
+    window.setTimeout(() => setFeedback(''), 6000);
   };
 
   const handleReset = () => {
     setActiveCascade(null);
     socket.emit('client-reset-scenario');
+    setFeedback('All nodes restored to nominal baseline — auto-drift resumed');
+    window.setTimeout(() => setFeedback(''), 6000);
     if (onReset) onReset();
   };
 
@@ -147,6 +165,14 @@ export default function SimulationPlaybackBar({ stats, onReset }) {
           <span>Reset</span>
         </button>
       </div>
+
+      {/* Cascade lock status / feedback */}
+      {feedback && (
+        <div className="w-full flex items-center gap-1.5 text-[11px] text-[#3457D5] bg-[#3457D5]/10 border border-[#3457D5]/25 px-2.5 py-1 rounded-[3px]">
+          <Sparkles className="w-3 h-3 shrink-0" />
+          <span>{feedback}</span>
+        </div>
+      )}
 
     </div>
   );

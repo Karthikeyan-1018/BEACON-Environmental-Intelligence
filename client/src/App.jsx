@@ -38,6 +38,10 @@ export default function App() {
     alerts: []
   });
 
+  // Server-pushed playback state (speed / pause / active cascade) so the bar
+  // reflects backend-authorized control changes even across clients.
+  const [simPlayback, setSimPlayback] = useState({ speed: 1, isPaused: false, activeCascade: null });
+
   const [showArchModal, setShowArchModal] = useState(false);
 
   // 1. Subscribe to autonomous client telemetry engine (ensures 100% active data stream)
@@ -82,6 +86,15 @@ export default function App() {
       if (data) setSimData(data);
     }
 
+    function onPlaybackStatus(status) {
+      if (!status) return;
+      setSimPlayback({
+        speed: status.speed !== undefined ? status.speed : simPlayback.speed,
+        isPaused: status.isPaused !== undefined ? status.isPaused : simPlayback.isPaused,
+        activeCascade: status.activeCascade || null
+      });
+    }
+
     function onSerialStatus(status) {
       if (status) setSerialStatus(status);
     }
@@ -94,6 +107,7 @@ export default function App() {
     socket.on('disconnect', onDisconnect);
     socket.on('live-telemetry', onLiveTelemetry);
     socket.on('sim-telemetry-update', onSimTelemetry);
+    socket.on('sim-playback-status', onPlaybackStatus);
     socket.on('serial-status', onSerialStatus);
     socket.on('offline-queue-status', onQueueStatus);
 
@@ -102,6 +116,7 @@ export default function App() {
       socket.off('disconnect', onDisconnect);
       socket.off('live-telemetry', onLiveTelemetry);
       socket.off('sim-telemetry-update', onSimTelemetry);
+      socket.off('sim-playback-status', onPlaybackStatus);
       socket.off('serial-status', onSerialStatus);
       socket.off('offline-queue-status', onQueueStatus);
     };
@@ -150,7 +165,7 @@ export default function App() {
             onInjectSpike={handleInjectSpike}
           />
         ) : (
-          <SimulatedDashboard simData={simData} />
+          <SimulatedDashboard simData={simData} playback={simPlayback} />
         )}
       </main>
 
