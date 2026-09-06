@@ -1,11 +1,19 @@
 import React from 'react';
-import { ShieldAlert, Users, Compass, Truck, CheckCircle2, AlertTriangle, Radio } from 'lucide-react';
+import { ShieldAlert, Users, Compass, Truck, CheckCircle2, AlertTriangle, Radio, BrainCircuit } from 'lucide-react';
 
-export default function AIDispatchAdvisory({ aiAdvisory, stats }) {
+export default function AIDispatchAdvisory({ aiAdvisory, stats, nodes }) {
   const riskIndex = aiAdvisory?.regionalRiskIndex || stats?.regionalRiskIndex || 12;
   const citizensAtRisk = aiAdvisory?.citizensAtRisk || 0;
   const dispatch = aiAdvisory?.recommendedDispatch || [];
   const corridors = aiAdvisory?.evacuationCorridors || [];
+
+  const drivers = (nodes || [])
+    .filter((n) => n.risk_level !== 'low')
+    .sort((a, b) => {
+      const score = (n) => (n.risk_level === 'high' ? 2 : 1) * (n.confidence_score || 0.8);
+      return score(b) - score(a);
+    })
+    .slice(0, 3);
 
   const getRiskColor = (idx) => {
     if (idx >= 65) return '#D9364A';
@@ -152,6 +160,45 @@ export default function AIDispatchAdvisory({ aiAdvisory, stats }) {
         </div>
 
       </div>
+
+    {/* Traceable AI rationale: why each top incident carries its risk level */}
+      {drivers.length > 0 && (
+        <div className="mt-3 bg-[#F7F8FA] p-3 rounded-[6px] border border-[#E3E7EC]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-[#1A2126] flex items-center gap-1.5">
+              <BrainCircuit className="w-3.5 h-3.5 text-[#3457D5]" />
+              Why these risk classifications?
+            </span>
+            <span className="text-[10px] text-[#6B7684] font-mono">Traceable AI rationale</span>
+          </div>
+
+          <div className="space-y-2">
+            {drivers.map((n) => {
+              const color = n.risk_level === 'high' ? '#D9364A' : '#D48806';
+              return (
+                <div key={n.node_id} className="bg-[#FFFFFF] rounded-[4px] p-2.5 border border-[#E3E7EC]">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span
+                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                      style={{ backgroundColor: `${color}18`, color }}
+                    >
+                      {n.risk_level.toUpperCase()}
+                    </span>
+                    <span className="text-xs font-bold text-[#1A2126]">{n.node_id}</span>
+                    <span className="text-[11px] text-[#6B7684]">{n.name}</span>
+                    <span className="ml-auto text-[10px] text-[#6B7684]">
+                      {Math.round((n.confidence_score || 0.8) * 100)}% confidence
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#1A2126] italic leading-relaxed">
+                    {n.riskExplanation}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
     </div>
   );

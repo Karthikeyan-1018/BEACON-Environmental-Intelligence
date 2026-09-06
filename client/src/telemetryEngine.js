@@ -1,4 +1,4 @@
-// Autonomous Client Telemetry Engine for BEACON Live Hardware Dashboard
+// Autonomous Client Telemetry Engine for BEACON Virtual Edge Node Dashboard
 // Ensures 100% uptime, active data stream, and instant interactivity
 // even if backend is offline or physical serial is not yet attached.
 

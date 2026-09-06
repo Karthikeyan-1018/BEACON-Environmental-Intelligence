@@ -110,7 +110,7 @@ export default function LiveControlCockpit({
           </div>
           <div>
             <h3 className="text-xs font-bold text-[#1A2126] uppercase tracking-wide">
-              Live Hardware Testing Cockpit
+              Virtual Edge Node Testing Cockpit
             </h3>
             <p className="text-[11px] text-[#6B7684]">
               Real-time interactive sliders, physical serial connection, and disaster simulation triggers

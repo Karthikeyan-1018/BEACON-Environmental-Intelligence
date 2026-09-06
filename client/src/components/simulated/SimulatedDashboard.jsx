@@ -8,6 +8,10 @@ import HazardFilterBar from './HazardFilterBar';
 import RegionalMap from './RegionalMap';
 import LiveAlertFeed from './LiveAlertFeed';
 import NodeDetailModal from './NodeDetailModal';
+import HistoricalAnalytics from './HistoricalAnalytics';
+import NotificationSimulator from './NotificationSimulator';
+import NodeHealthPanel from './NodeHealthPanel';
+import WeatherContextBar from './WeatherContextBar';
 
 export default function SimulatedDashboard({ simData }) {
   const [selectedHazard, setSelectedHazard] = useState('all');
@@ -66,19 +70,28 @@ export default function SimulatedDashboard({ simData }) {
       {/* 1. Simulated Data Notice Banner */}
       <SimulatedBanner />
 
-      {/* 2. Timeline Playback & Speed Controller */}
+      {/* 2. Regional Weather Context: wind vane, speed, plume-advection explainer */}
+      <WeatherContextBar weather={stats?.weather || {}} nodes={nodes} />
+
+      {/* 3. Timeline Playback & Speed Controller */}
       <SimulationPlaybackBar stats={stats} />
 
-      {/* 3. Top Metric Statistics Strip */}
+      {/* 4. Top Metric Statistics Strip */}
       <RegionalStatsBar stats={stats} />
 
-      {/* 4. AI Disaster Impact & Emergency Dispatch Advisory Hub */}
-      <AIDispatchAdvisory aiAdvisory={aiAdvisory} stats={stats} />
+      {/* 5. AI Disaster Impact & Emergency Dispatch Advisory Hub */}
+      <AIDispatchAdvisory aiAdvisory={aiAdvisory} stats={stats} nodes={nodes} />
 
-      {/* 5. Scenario Injector Strip */}
+      {/* 6. Scenario Injector Strip */}
       <ScenarioControl />
 
-      {/* 6. Filter Toolbar */}
+      {/* 7. Historical Analytics: daily/weekly risk trends & hazard-type counts */}
+      <HistoricalAnalytics analytics={simData?.analytics || {}} />
+
+      {/* 8. Node health monitoring: battery, LoRa link, last-seen, connection */}
+      <NodeHealthPanel nodes={nodes} />
+
+      {/* 9. Filter Toolbar */}
       <HazardFilterBar
         selectedHazard={selectedHazard}
         setSelectedHazard={setSelectedHazard}
@@ -91,7 +104,7 @@ export default function SimulatedDashboard({ simData }) {
         zones={uniqueZones}
       />
 
-      {/* 7. Map-First Operations Layout: Map (~65% width) + Docked Alert Feed (~35% width) */}
+      {/* 10. Map-First Operations Layout: Map (~65% width) + Docked Alert Feed (~35% width) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
         
         {/* Map-First Viewport (~65% width) */}
@@ -100,6 +113,7 @@ export default function SimulatedDashboard({ simData }) {
             nodes={filteredNodes}
             selectedNode={selectedNode}
             onSelectNode={setSelectedNode}
+            weather={stats?.weather || {}}
           />
         </div>
 
@@ -113,13 +127,16 @@ export default function SimulatedDashboard({ simData }) {
 
       </div>
 
-      {/* 8. Node Detail Inspector Modal */}
+      {/* 11. Node Detail Inspector Modal */}
       {selectedNode && (
         <NodeDetailModal
           node={selectedNode}
           onClose={() => setSelectedNode(null)}
         />
       )}
+
+      {/* 12. Notification simulation overlay (SMS / authority / citizen cards) */}
+      <NotificationSimulator alerts={alerts} />
 
     </div>
   );

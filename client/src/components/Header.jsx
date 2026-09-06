@@ -51,7 +51,7 @@ export default function Header({ activeTab, setActiveTab, isConnected }) {
               }`}
             >
               <Cpu className="w-3.5 h-3.5" />
-              <span>Live hardware</span>
+              <span>Virtual Edge Node</span>
               <span className="text-[11px] opacity-80">
                 (single node)
               </span>

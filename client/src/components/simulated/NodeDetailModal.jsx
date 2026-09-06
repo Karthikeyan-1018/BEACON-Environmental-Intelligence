@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, BrainCircuit, ArrowUp, ArrowDown } from 'lucide-react';
 import {
   ResponsiveContainer,
   LineChart,
@@ -10,6 +10,23 @@ import {
   CartesianGrid
 } from 'recharts';
 import { getHazardColor, HAZARD_LABELS, getSeverityColor } from '../../hazardTheme';
+
+const KEY_LABEL = { pm25: 'PM2.5', pm10: 'PM10', ph: 'pH', voc: 'VOC' };
+
+function keyLabel(key) {
+  return KEY_LABEL[key] || key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function bandOf(ev) {
+  if (ev.inverted) {
+    if (ev.value <= ev.critical) return 'critical';
+    if (ev.value <= ev.warning) return 'warning';
+    return 'normal';
+  }
+  if (ev.value >= ev.critical) return 'critical';
+  if (ev.value >= ev.warning) return 'warning';
+  return 'normal';
+}
 
 export default function NodeDetailModal({ node, onClose }) {
   if (!node) return null;
@@ -119,6 +136,65 @@ export default function NodeDetailModal({ node, onClose }) {
               ))}
             </div>
           </div>
+
+          {/* Why this risk level? — AI decision explanation */}
+          {node.riskExplanation && (
+            <div
+              className="rounded-[4px] border p-3 border-l-4"
+              style={{ borderColor: '#E3E7EC', borderLeftColor: riskColor, backgroundColor: `${riskColor}0A` }}
+            >
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <BrainCircuit className="w-3.5 h-3.5" style={{ color: riskColor }} />
+                <span className="text-xs font-semibold text-[#1A2126]">
+                  Why this risk level?
+                </span>
+                <span className="ml-auto text-[10px] text-[#6B7684]">
+                  AI decision rationale &middot; {Math.round(node.confidence_score * 100)}% confidence
+                </span>
+              </div>
+
+              <p className="text-xs leading-relaxed text-[#1A2126]">
+                {node.riskExplanation}
+              </p>
+
+              {node.riskEvidence && (
+                <div className="mt-2 space-y-1.5">
+                  {[node.riskEvidence.primary, node.riskEvidence.secondary].map((ev) => {
+                    const band = bandOf(ev);
+                    const bandColor = band === 'critical' ? '#D9364A' : band === 'warning' ? '#D48806' : '#2E9E6B';
+                    return (
+                      <div key={ev.key} className="flex items-center gap-2 bg-[#FFFFFF] rounded-[3px] border border-[#E3E7EC] px-2 py-1.5">
+                        {ev.inverted
+                          ? <ArrowDown className="w-3 h-3 shrink-0 text-[#D48806]" />
+                          : <ArrowUp className="w-3 h-3 shrink-0 text-[#D48806]" />}
+                        <span className="text-[10px] font-semibold text-[#6B7684] w-24 shrink-0">
+                          {keyLabel(ev.key)}
+                        </span>
+                        <span className="flex items-center gap-1 font-sensor-num font-bold text-xs text-[#1A2126]">
+                          {ev.value}
+                          <span className="text-[10px] font-normal text-[#6B7684]">{ev.unit}</span>
+                          <span
+                            className="ml-1 px-1.5 py-0.5 rounded-[3px] text-[9px] font-bold"
+                            style={{ backgroundColor: `${bandColor}18`, color: bandColor }}
+                          >
+                            {band === 'critical' ? 'CRITICAL' : band === 'warning' ? 'WARNING' : 'WITHIN RANGE'}
+                          </span>
+                        </span>
+                        <span className="ml-auto hidden md:flex items-center gap-1.5">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-[3px] border text-[#D48806] border-[#D48806]/30 bg-[#D48806]/5">
+                            {ev.inverted ? '≤' : '≥'} {ev.warning} {ev.unit} warn
+                          </span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-[3px] border text-[#D9364A] border-[#D9364A]/30 bg-[#D9364A]/5">
+                            {ev.inverted ? '≤' : '≥'} {ev.critical} {ev.unit} crit
+                          </span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Sparkline History Curve */}
           <div>

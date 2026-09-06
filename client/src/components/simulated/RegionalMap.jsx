@@ -6,7 +6,8 @@ import { HAZARD_COLORS, getHazardColor, HAZARD_LABELS } from '../../hazardTheme'
 export default function RegionalMap({
   nodes = [],
   selectedNode,
-  onSelectNode
+  onSelectNode,
+  weather = {}
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -378,6 +379,31 @@ export default function RegionalMap({
         <div className="absolute bottom-3 left-3 z-[400] bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-[6px] border border-[#E3E7EC] text-xs text-[#6B7684] shadow-sm font-medium">
           <span>Western Ghats Corridor &bull; Coimbatore & Nilgiris Basin</span>
         </div>
+
+        {/* Wind Vane Overlay on Bottom Right */}
+        {weather && weather.windDir && (
+          <div className="absolute bottom-3 right-3 z-[400] bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-[6px] border border-[#E3E7EC] shadow-sm flex items-center gap-2">
+            <div className="relative w-8 h-8 rounded-full bg-[#F7F8FA] border border-[#E3E7EC] flex items-center justify-center shrink-0">
+              <span className="absolute top-0 text-[7px] font-bold text-[#1A2126] leading-none">N</span>
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                style={{ transform: `rotate(${weather.windDeg || 0}deg)` }}
+                className="transition-transform duration-700 ease-out"
+              >
+                <path d="M12 2 L15.5 22 L12 17.5 L8.5 22 Z" fill="#3457D5" />
+              </svg>
+            </div>
+            <div className="text-[11px] leading-tight text-[#1A2126]">
+              <strong>{weather.windDir}</strong> {weather.windDeg || 0}°
+              <div className="text-[10px] text-[#6B7684]">
+                {weather.windSpeed} km/h {weather.condition}
+                {weather.plumeActive ? ' · plume active' : ''}
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
 

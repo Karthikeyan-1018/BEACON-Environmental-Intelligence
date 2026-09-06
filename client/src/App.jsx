@@ -197,7 +197,7 @@ export default function App() {
               {/* Pipeline 1 */}
               <div className="bg-[#F7F8FA] p-3.5 rounded-[3px] border border-[#E3E7EC]">
                 <h4 className="text-xs font-semibold text-[#1A2126] mb-1.5">
-                  Pipeline 1: physical edge prototype (live dashboard)
+                  Pipeline 1: BEACON virtual edge node (test dashboard)
                 </h4>
                 <div className="text-[11px] text-[#1A2126] bg-[#FFFFFF] p-2.5 rounded-[3px] border border-[#E3E7EC] leading-relaxed font-mono">
                   Edge node (DHT22, MQ-2, water level, rain) <br />

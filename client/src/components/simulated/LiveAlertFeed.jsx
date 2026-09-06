@@ -1,14 +1,37 @@
-import React, { useState } from 'react';
-import { AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { CheckCircle2, Download, FileSpreadsheet, FileText, ChevronDown, BrainCircuit } from 'lucide-react';
 import { getHazardColor } from '../../hazardTheme';
+import { exportAlertsCsv, openAlertsPdf } from '../../utils/incidentReport';
 
 export default function LiveAlertFeed({ alerts = [], onSelectNodeById }) {
   const [filterSeverity, setFilterSeverity] = useState('all');
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const filteredAlerts = alerts.filter((a) => {
     if (filterSeverity === 'all') return true;
     return a.severity === filterSeverity;
   });
+
+  const handleExportCsv = () => {
+    exportAlertsCsv(filteredAlerts);
+    setShowExportMenu(false);
+  };
+
+  const handleExportPdf = () => {
+    openAlertsPdf(filteredAlerts);
+    setShowExportMenu(false);
+  };
 
   const getRecipientBadge = (recipient) => {
     if (recipient.includes('Authority & Citizen') || recipient.includes('Dual Dispatch')) {
@@ -67,6 +90,40 @@ export default function LiveAlertFeed({ alerts = [], onSelectNodeById }) {
           >
             Elevated
           </button>
+
+          {/* Export Incident Report Dropdown */}
+          <div className="relative" ref={exportMenuRef}>
+            <button
+              onClick={() => setShowExportMenu((v) => !v)}
+              className="px-2 py-0.5 text-[11px] font-medium rounded-[3px] border border-[#3457D5]/30 text-[#3457D5] hover:bg-[#3457D5]/10 flex items-center gap-1 transition-colors"
+              title="Export current alerts as a report"
+            >
+              <Download className="w-3 h-3" />
+              <span>Export</span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showExportMenu && (
+              <div className="absolute right-0 top-full mt-1 z-30 bg-[#FFFFFF] border border-[#E3E7EC] rounded-[5px] shadow-[0_6px_20px_rgba(16,24,32,0.14)] py-1 min-w-[180px]">
+                <button
+                  onClick={handleExportCsv}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-[#1A2126] hover:bg-[#F1F3F6] transition-colors"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-[#2E9E6B]" />
+                  <span>Download CSV</span>
+                  <span className="ml-auto text-[10px] text-[#8A96A0]">({filteredAlerts.length})</span>
+                </button>
+                <button
+                  onClick={handleExportPdf}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-[#1A2126] hover:bg-[#F1F3F6] transition-colors"
+                >
+                  <FileText className="w-3.5 h-3.5 text-[#D9364A]" />
+                  <span>Open PDF report</span>
+                  <span className="ml-auto text-[10px] text-[#8A96A0]">({filteredAlerts.length})</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -135,6 +192,14 @@ export default function LiveAlertFeed({ alerts = [], onSelectNodeById }) {
                   <span>Reading: <span className="font-sensor-num font-semibold text-[#1A2126]">{alert.primary_value}</span></span>
                   <span>Confidence: <span className="text-[#2E9E6B] font-medium">{Math.round((alert.confidence || 0.9) * 100)}%</span></span>
                 </div>
+
+                {/* AI explanation for the assigned risk */}
+                {alert.explanation && (
+                  <div className="flex gap-1.5 mt-1.5 pt-1 border-t border-dashed border-[#EDEFF2] text-[10px] text-[#6B7684]">
+                    <BrainCircuit className="w-3 h-3 shrink-0 mt-0.5" style={{ color: hazardColor }} />
+                    <span className="italic leading-snug">{alert.explanation}</span>
+                  </div>
+                )}
 
                 {/* Recipient tag & time */}
                 <div className="flex items-center justify-between text-[10px] pt-1 border-t border-[#EDEFF2] mt-1">
