@@ -155,6 +155,11 @@ app.get('/api/live/snapshot', (req, res) => {
   res.json(serialManager.getSnapshot());
 });
 
+// ESP32 physical-node snapshot API (dedicated dashboard stream)
+app.get('/api/esp32/snapshot', (req, res) => {
+  res.json(serialManager.getEsp32Snapshot());
+});
+
 const PORT = process.env.PORT || 5001;
 server.listen(PORT, () => {
   console.log(`=======================================================`);

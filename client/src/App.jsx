@@ -3,6 +3,7 @@ import socket from './socket';
 import Header from './components/Header';
 import LiveDashboard from './components/live/LiveDashboard';
 import SimulatedDashboard from './components/simulated/SimulatedDashboard';
+import Esp32NodeDashboard from './components/esp32/Esp32NodeDashboard';
 import { WifiOff, BookOpen, X } from 'lucide-react';
 import telemetryEngine from './telemetryEngine';
 import audioAlert from './utils/audioAlert';
@@ -164,6 +165,8 @@ export default function App() {
             onSensorChange={handleSensorChange}
             onInjectSpike={handleInjectSpike}
           />
+        ) : activeTab === 'esp32' ? (
+          <Esp32NodeDashboard />
         ) : (
           <SimulatedDashboard simData={simData} playback={simPlayback} />
         )}

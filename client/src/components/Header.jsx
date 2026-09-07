@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Globe, Cpu } from 'lucide-react';
+import { Activity, Globe, Cpu, Radio } from 'lucide-react';
 
 export default function Header({ activeTab, setActiveTab, isConnected }) {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -69,6 +69,21 @@ export default function Header({ activeTab, setActiveTab, isConnected }) {
               <span>Regional simulation</span>
               <span className="text-[11px] opacity-80">
                 (21 nodes)
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('esp32')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] text-xs transition-all ${
+                activeTab === 'esp32'
+                  ? 'bg-[#3457D5] text-[#FFFFFF] shadow-sm font-medium'
+                  : 'bg-transparent text-[#6B7684] hover:text-[#1A2126] font-normal'
+              }`}
+            >
+              <Radio className="w-3.5 h-3.5" />
+              <span>ESP32 Node</span>
+              <span className="text-[11px] opacity-80">
+                (physical)
               </span>
             </button>
           </div>

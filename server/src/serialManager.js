@@ -56,6 +56,37 @@ class SerialManager {
 
     // Start mock generator initially
     this.startMockGenerator();
+
+    // ---------------------------------------------------------------------------
+    // ESP32 physical-node mirror (dedicated stream, independent of the virtual
+    // node dashboards). Consumes the firmware's human-readable serial block:
+    //   Temperature : 30.10 C
+    //   Humidity    : 62.50 %
+    //   Smoke       : 51
+    //   Rain        : 4095
+    //   Water       : 0
+    //   Risk Type   : NORMAL | FLOOD | FIRE | COMBINED
+    //   Risk Level  : NORMAL | WARNING | HIGH | CRITICAL
+    //   STATUS : ALIVE  (printed every 30 seconds)
+    // ---------------------------------------------------------------------------
+    this.esp32 = {
+      temp: 30.1,
+      humidity: 62.5,
+      smoke: 51,
+      rain: 4095,
+      water: 0,
+      riskType: 'NORMAL',
+      riskLevel: 'NORMAL',
+      sequence: 0,
+      lastUpdate: null,
+      aliveAt: null
+    };
+    this.esp32BlockLines = [];
+    this.esp32LastRealUpdate = 0;
+    this.esp32NextAlive = 0;
+    this.esp32Stats = { cycles: 0, alerts: 0, lastAlert: null, source: 'mock', levelRank: 0 };
+    this.esp32LastAlertKey = null;
+    this.startEsp32Mock();
   }
 
   initHistory() {
@@ -126,8 +157,9 @@ class SerialManager {
         this.emitStatus();
       });
 
-      this.parser.on('data', (line) => {
-        this.handleSerialLine(line);
+      this.parser.on('data', (chunk) => {
+        // Firmware may emit whole blocks at once; split into individual lines.
+        String(chunk).split(/\r?\n/).forEach((l) => this.handleSerialLine(l));
       });
 
       this.port.on('error', (err) => {
@@ -193,6 +225,245 @@ class SerialManager {
     if (this.mockTimer) {
       clearInterval(this.mockTimer);
       this.mockTimer = null;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // ESP32 physical-node stream: parses the firmware's human-readable serial
+  // block (key : value per line) and mirrors it on a dedicated socket channel.
+  // ---------------------------------------------------------------------------
+
+  startEsp32Mock() {
+    if (this.esp32MockTimer) clearInterval(this.esp32MockTimer);
+    // Firmware samples sensors every 2 seconds.
+    this.esp32MockTimer = setInterval(() => this.generateEsp32Mock(), 2000);
+  }
+
+  stopEsp32Mock() {
+    if (this.esp32MockTimer) {
+      clearInterval(this.esp32MockTimer);
+      this.esp32MockTimer = null;
+    }
+  }
+
+  generateEsp32Mock() {
+    // Hardware takes priority: if a real ESP32 reading arrived recently, skip.
+    if (Date.now() - this.esp32LastRealUpdate < 10000) return;
+
+    const e = this.esp32;
+    const roll = Math.random();
+
+    // ~5% chance to enter a risk scenario, otherwise drift back to nominal.
+    if (roll < 0.05) {
+      const kind = roll < 0.02 ? 'fire' : (roll < 0.04 ? 'flood' : 'combined');
+      if (kind === 'fire' || kind === 'combined') {
+        e.smoke = Math.round(560 + Math.random() * 360);
+        e.temp = +(46 + Math.random() * 6).toFixed(1);
+      }
+      if (kind === 'flood' || kind === 'combined') {
+        e.rain = Math.round(300 + Math.random() * 900);
+        e.water = Math.round(2100 + Math.random() * 1100);
+      }
+    } else {
+      e.temp = Math.max(26, Math.min(36, +(e.temp + (Math.random() - 0.5) * 0.3).toFixed(1)));
+      e.humidity = Math.max(45, Math.min(78, +(e.humidity + (Math.random() - 0.5) * 0.8).toFixed(1)));
+      e.smoke = Math.max(40, Math.min(150, Math.round(e.smoke + (Math.random() - 0.5) * 6)));
+      e.rain = Math.max(3200, Math.min(4095, Math.round(e.rain + (Math.random() - 0.5) * 40)));
+      e.water = Math.max(0, Math.min(60, Math.round(e.water + (Math.random() - 0.5) * 12)));
+    }
+
+    e.riskType = this.classifyEsp32RiskType(e);
+    e.riskLevel = this.classifyEsp32RiskLevel(e);
+    e.sequence += 1;
+    e.lastUpdate = new Date().toISOString();
+    this.esp32Stats.source = 'mock';
+    this.tallyEsp32Risk(e);
+
+    const heartbeat = Date.now() >= this.esp32NextAlive;
+    if (heartbeat) {
+      e.aliveAt = new Date().toISOString();
+      this.esp32NextAlive = Date.now() + 30000;
+    }
+    this.emitEsp32Telemetry({ heartbeat });
+  }
+
+  classifyEsp32RiskType(e) {
+    // Mirror the on-node firmware logic: fire from smoke/temp, flood from water/rain.
+    const fire = e.smoke >= 260 || e.temp >= 42;
+    const flood = e.water >= 1600 || e.rain <= 1400;
+    if (fire && flood) return 'COMBINED';
+    if (fire) return 'FIRE';
+    if (flood) return 'FLOOD';
+    return 'NORMAL';
+  }
+
+  classifyEsp32RiskLevel(e) {
+    const rank = (val, w, h, c) => (val >= c ? 3 : val >= h ? 2 : val >= w ? 1 : 0);
+    const fire = Math.max(rank(e.temp, 42, 44, 47), rank(e.smoke, 260, 420, 700));
+    // Rain sensor raw ADC is inverted: low reading = heavy precipitation.
+    const flood = Math.max(rank(e.water, 1600, 2000, 2600), 3 - rank(e.rain, 1400, 900, 400));
+    const worst = Math.max(fire, flood);
+    if (worst >= 3) return 'CRITICAL';
+    if (worst === 2) return 'HIGH';
+    if (worst === 1) return 'WARNING';
+    return 'NORMAL';
+  }
+
+  tallyEsp32Risk(e) {
+    this.esp32Stats.cycles += 1;
+    const rank = e.riskLevel === 'CRITICAL' ? 3 : e.riskLevel === 'HIGH' ? 2 : e.riskLevel === 'WARNING' ? 1 : 0;
+    const prev = this.esp32Stats.levelRank || 0;
+    if (rank > 0 && rank !== prev) {
+      this.esp32Stats.alerts += 1;
+      this.esp32Stats.lastAlert = new Date().toISOString();
+    }
+    this.esp32Stats.levelRank = rank;
+  }
+
+  formatEsp32Block(e) {
+    return [
+      '---------------------------------',
+      'Temperature : ' + e.temp.toFixed(2) + ' C',
+      'Humidity    : ' + e.humidity.toFixed(2) + ' %',
+      'Smoke       : ' + e.smoke,
+      'Rain        : ' + e.rain,
+      'Water       : ' + e.water,
+      '',
+      'Risk Type   : ' + e.riskType,
+      'Risk Level  : ' + e.riskLevel,
+      '---------------------------------'
+    ].join('\n');
+  }
+
+  emitEsp32Telemetry(extra = {}) {
+    const payload = {
+      data: { ...this.esp32 },
+      stats: { ...this.esp32Stats },
+      serialized: this.formatEsp32Block(this.esp32),
+      heartbeat: !!extra.heartbeat,
+      timestamp: new Date().toISOString()
+    };
+    if (this.io) {
+      this.io.emit('esp32-telemetry', payload);
+    }
+
+    const { riskType, riskLevel } = payload.data;
+    if (riskLevel && riskLevel !== 'NORMAL') {
+      const alertKey = `${riskType}|${riskLevel}`;
+      if (alertKey !== this.esp32LastAlertKey) {
+        this.esp32LastAlertKey = alertKey;
+        if (this.io) {
+          this.io.emit('esp32-alert', {
+            riskType,
+            riskLevel,
+            temp: payload.data.temp,
+            humidity: payload.data.humidity,
+            smoke: payload.data.smoke,
+            rain: payload.data.rain,
+            water: payload.data.water,
+            message: `ESP32 Node — ${riskType} ${riskLevel}`,
+            timestamp: payload.timestamp
+          });
+        }
+      }
+    } else {
+      this.esp32LastAlertKey = null;
+    }
+
+    return payload;
+  }
+
+  emitEsp32Status() {
+    if (this.io) {
+      this.io.emit('esp32-status', {
+        connected: this.isConnected,
+        activePort: this.activePortPath,
+        serialSupported: !!SerialPort
+      });
+    }
+  }
+
+  getEsp32Snapshot() {
+    return {
+      data: { ...this.esp32 },
+      stats: { ...this.esp32Stats },
+      status: this.getStatus(),
+      serialized: this.formatEsp32Block(this.esp32)
+    };
+  }
+
+  parseEsp32Line(line) {
+    const m = line.match(/^([A-Za-z ]+?)\s*:\s*(.*)$/);
+    if (!m) return;
+    const key = m[1].trim().toLowerCase();
+    const raw = m[2].trim().split(',')[0].trim();
+    const e = this.esp32;
+    switch (key) {
+      case 'temperature': {
+        const v = parseFloat(raw);
+        if (!isNaN(v)) e.temp = +v.toFixed(2);
+        break;
+      }
+      case 'humidity': {
+        const v = parseFloat(raw);
+        if (!isNaN(v)) e.humidity = +v.toFixed(2);
+        break;
+      }
+      case 'smoke': {
+        const v = parseInt(raw, 10);
+        if (!isNaN(v)) e.smoke = v;
+        break;
+      }
+      case 'rain': {
+        const v = parseInt(raw, 10);
+        if (!isNaN(v)) e.rain = v;
+        break;
+      }
+      case 'water': {
+        const v = parseInt(raw, 10);
+        if (!isNaN(v)) e.water = v;
+        break;
+      }
+      case 'risk type':
+        e.riskType = raw.toUpperCase();
+        break;
+      case 'risk level':
+        e.riskLevel = raw.toUpperCase();
+        break;
+      default:
+        break;
+    }
+  }
+
+  handleEsp32Text(line) {
+    if (!line) return;
+    const t = line.trim();
+    if (!t) return;
+
+    // STATUS : ALIVE heartbeat, printed by the firmware every 30 seconds.
+    if (/^STATUS\s*:\s*ALIVE/i.test(t)) {
+      this.esp32.aliveAt = new Date().toISOString();
+      this.esp32NextAlive = Date.now() + 30000;
+      this.emitEsp32Telemetry({ heartbeat: true });
+      return;
+    }
+
+    this.esp32BlockLines.push(t);
+
+    // A full reading block completes at the trailing "Risk Level" line.
+    if (/^Risk Level\s*:/i.test(t)) {
+      if (this.esp32BlockLines.length > 0) {
+        this.esp32BlockLines.forEach((l) => this.parseEsp32Line(l));
+        this.esp32BlockLines = [];
+        const e = this.esp32;
+        e.sequence += 1;
+        e.lastUpdate = new Date().toISOString();
+        e.aliveAt = e.aliveAt || new Date().toISOString();
+        this.esp32LastRealUpdate = Date.now();
+        this.esp32Stats.source = 'serial';
+        this.tallyEsp32Risk(e);
+        this.emitEsp32Telemetry({ heartbeat: false });
+      }
     }
   }
 
@@ -275,7 +546,9 @@ class SerialManager {
   handleSerialLine(line) {
     const trimmed = line.trim();
     if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) {
-      return; // Not a JSON packet
+      // Not a JSON packet: treat as the ESP32 firmware's text block.
+      this.handleEsp32Text(trimmed);
+      return;
     }
 
     try {
@@ -387,6 +660,7 @@ class SerialManager {
     if (this.io) {
       this.io.emit('serial-status', this.getStatus());
     }
+    this.emitEsp32Status();
   }
 
   getSnapshot() {
