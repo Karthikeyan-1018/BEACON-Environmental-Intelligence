@@ -124,11 +124,9 @@ class SerialManager {
   }
 
   async connect(portPath, baudRate = 115200) {
-    if (this.isMockMode) {
-      this.stopMockGenerator();
-      this.isMockMode = false;
-    }
-
+    // The ESP32 physical node is a separate hardware stream from the virtual
+    // Live/Regional dashboards. Connecting the ESP32 does NOT stop the live
+    // mock generator — the two data sources stay fully independent.
     if (this.port && this.port.isOpen) {
       await this.disconnect();
     }
@@ -254,22 +252,27 @@ class SerialManager {
     const roll = Math.random();
 
     // ~5% chance to enter a risk scenario, otherwise drift back to nominal.
+    // Thresholds mirror the firmware's hybrid rules (fireRule + floodRule).
     if (roll < 0.05) {
       const kind = roll < 0.02 ? 'fire' : (roll < 0.04 ? 'flood' : 'combined');
       if (kind === 'fire' || kind === 'combined') {
-        e.smoke = Math.round(560 + Math.random() * 360);
-        e.temp = +(46 + Math.random() * 6).toFixed(1);
+        // fireRule critical zone: smoke>=700, temp>=36, humidity<=45
+        e.smoke = Math.round(500 + Math.random() * 400);
+        e.temp = +(34 + Math.random() * 8).toFixed(1);
+        e.humidity = +(35 + Math.random() * 15).toFixed(1);
       }
       if (kind === 'flood' || kind === 'combined') {
-        e.rain = Math.round(300 + Math.random() * 900);
-        e.water = Math.round(2100 + Math.random() * 1100);
+        // floodRule critical zone: water>=2000, rain<=1800
+        e.rain = Math.round(1000 + Math.random() * 1600);
+        e.water = Math.round(1400 + Math.random() * 1800);
       }
     } else {
-      e.temp = Math.max(26, Math.min(36, +(e.temp + (Math.random() - 0.5) * 0.3).toFixed(1)));
-      e.humidity = Math.max(45, Math.min(78, +(e.humidity + (Math.random() - 0.5) * 0.8).toFixed(1)));
-      e.smoke = Math.max(40, Math.min(150, Math.round(e.smoke + (Math.random() - 0.5) * 6)));
-      e.rain = Math.max(3200, Math.min(4095, Math.round(e.rain + (Math.random() - 0.5) * 40)));
-      e.water = Math.max(0, Math.min(60, Math.round(e.water + (Math.random() - 0.5) * 12)));
+      // Normal drift: ranges based on MEAN ± SCALE from firmware calibration
+      e.temp = Math.max(27, Math.min(36, +(e.temp + (Math.random() - 0.5) * 0.3).toFixed(1)));
+      e.humidity = Math.max(50, Math.min(78, +(e.humidity + (Math.random() - 0.5) * 0.8).toFixed(1)));
+      e.smoke = Math.max(40, Math.min(500, Math.round(e.smoke + (Math.random() - 0.5) * 8)));
+      e.rain = Math.max(2800, Math.min(4095, Math.round(e.rain + (Math.random() - 0.5) * 40)));
+      e.water = Math.max(0, Math.min(800, Math.round(e.water + (Math.random() - 0.5) * 15)));
     }
 
     e.riskType = this.classifyEsp32RiskType(e);
@@ -288,9 +291,9 @@ class SerialManager {
   }
 
   classifyEsp32RiskType(e) {
-    // Mirror the on-node firmware logic: fire from smoke/temp, flood from water/rain.
-    const fire = e.smoke >= 260 || e.temp >= 42;
-    const flood = e.water >= 1600 || e.rain <= 1400;
+    // Mirror the firmware's fireRule + floodRule.
+    const fire  = e.smoke >= 240 && e.temp >= 30 && e.humidity <= 60;
+    const flood = e.water >= 1200;
     if (fire && flood) return 'COMBINED';
     if (fire) return 'FIRE';
     if (flood) return 'FLOOD';
@@ -298,11 +301,23 @@ class SerialManager {
   }
 
   classifyEsp32RiskLevel(e) {
-    const rank = (val, w, h, c) => (val >= c ? 3 : val >= h ? 2 : val >= w ? 1 : 0);
-    const fire = Math.max(rank(e.temp, 42, 44, 47), rank(e.smoke, 260, 420, 700));
-    // Rain sensor raw ADC is inverted: low reading = heavy precipitation.
-    const flood = Math.max(rank(e.water, 1600, 2000, 2600), 3 - rank(e.rain, 1400, 900, 400));
-    const worst = Math.max(fire, flood);
+    // Fire: mirrors firmware fireRule (smoke + temp + humidity)
+    let fireRank = 0;
+    if (e.smoke >= 700 && e.temp >= 36 && e.humidity <= 45)      fireRank = 3;
+    else if (e.smoke >= 350 && e.temp >= 32 && e.humidity <= 52)  fireRank = 2;
+    else if (e.smoke >= 240 && e.temp >= 30 && e.humidity <= 60)  fireRank = 1;
+
+    // Flood: mirrors firmware floodRule (water alone, plus rain+water)
+    let floodRank = 0;
+    if (e.water >= 2000)                  floodRank = Math.max(floodRank, 3);
+    else if (e.water >= 1700)             floodRank = Math.max(floodRank, 2);
+    else if (e.water >= 1200)             floodRank = Math.max(floodRank, 1);
+    if (e.rain <= 1800 && e.water >= 2000) floodRank = Math.max(floodRank, 3);
+    else if (e.rain <= 2200 && e.water >= 1700) floodRank = Math.max(floodRank, 2);
+    else if (e.rain <= 2600 && e.water >= 1200) floodRank = Math.max(floodRank, 1);
+
+    // Final severity = max(fire, flood) — ML model is only on-device
+    const worst = Math.max(fireRank, floodRank);
     if (worst >= 3) return 'CRITICAL';
     if (worst === 2) return 'HIGH';
     if (worst === 1) return 'WARNING';

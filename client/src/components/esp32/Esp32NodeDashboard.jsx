@@ -15,7 +15,6 @@ import {
   Check,
   Wifi,
   WifiOff,
-  Play,
   Volume2,
   X
 } from 'lucide-react';
@@ -144,12 +143,12 @@ export default function Esp32NodeDashboard() {
     }
   }, [log]);
 
-  // Auto-dismiss toasts after 8 seconds.
+  // Auto-dismiss notifications after 9 seconds (same lifetime as simulation).
   useEffect(() => {
     if (toasts.length === 0) return;
     const timer = setTimeout(() => {
       setToasts((prev) => prev.slice(1));
-    }, 8000);
+    }, 9000);
     return () => clearTimeout(timer);
   }, [toasts]);
 
@@ -445,7 +444,7 @@ export default function Esp32NodeDashboard() {
             })}
           </div>
           <div className="mt-2.5 text-[10px] text-[#8A96A0]">
-            Fire ← smoke ≥ 260 ADC or temp ≥ 42 °C · Flood ← water ≥ 1600 or rain ≤ 1400 · Combined = both
+            Fire ← smoke≥240 &amp; temp≥30°C &amp; humidity≤60 · Flood ← water≥1200 · Combined = both
           </div>
         </div>
 
@@ -475,7 +474,7 @@ export default function Esp32NodeDashboard() {
             })}
           </div>
           <div className="mt-2.5 text-[10px] text-[#8A96A0]">
-            warning → high → critical as smoke / temp / water cross 260–700, 42–47 °C, 1600–2600 raw.
+            Fire: smoke≥240/350/700 + temp≥30/32/36 + humidity≤60/52/45 · Flood: water≥1200/1700/2000
           </div>
         </div>
       </div>
@@ -554,46 +553,67 @@ export default function Esp32NodeDashboard() {
         </div>
       </div>
 
-      {/* 8. Alert toast stack */}
-      {toasts.length > 0 && (
-        <div className="fixed top-3 right-3 z-[9999] flex flex-col gap-2 pointer-events-none">
-          {toasts.map((t) => {
-            const lc = LEVEL_COLORS[t.riskLevel] || '#D9364A';
-            return (
-              <div
-                key={t.id}
-                className="pointer-events-auto bg-white border rounded-lg shadow-xl flex items-stretch overflow-hidden esp32-toast"
-                style={{ borderColor: `${lc}66` }}
-              >
-                <div className="w-1.5 shrink-0" style={{ backgroundColor: lc }} />
-                <div className="flex items-center gap-3 px-3.5 py-3">
-                  <Volume2 className="w-5 h-5 shrink-0" style={{ color: lc }} />
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-[#1A2126]">{t.message}</div>
-                    <div className="text-[10px] text-[#6B7684] mt-0.5">
-                      temp {t.temp} °C · smoke {t.smoke} · water {t.water}
-                    </div>
+      {/* 8. ESP32 alert notifications (compact, simulation-style) */}
+      <div className="fixed bottom-4 right-4 z-[1250] flex flex-col items-end gap-2 pointer-events-none">
+        {toasts.map((t) => {
+          const lc = LEVEL_COLORS[t.riskLevel] || '#D9364A';
+          return (
+            <div key={t.id} className="esp32-notif pointer-events-auto w-[340px] max-w-[92vw]">
+              <div className="rounded-[10px] bg-[#FFFFFF] border border-[#E3E7EC] shadow-[0_10px_32px_rgba(16,24,32,0.25)] overflow-hidden border-l-[4px]" style={{ borderLeftColor: lc }}>
+                <div className="flex items-center justify-between px-3 py-2 bg-[#F1F3F6] border-b border-[#EDEFF2]">
+                  <div className="flex items-center gap-1.5">
+                    <Volume2 className="w-3.5 h-3.5" style={{ color: lc }} />
+                    <span className="text-[11px] font-bold tracking-wide text-[#1A2126]">ESP32 NODE &middot; LIVE ALERT</span>
                   </div>
-                  <button
-                    onClick={() => { try { audioAlert.playBuzzerBeep(); } catch (_) {} }}
-                    className="shrink-0 px-2 py-1 rounded text-[10px] font-medium border transition-colors"
-                    style={{ borderColor: `${lc}44`, color: lc, backgroundColor: `${lc}0D` }}
-                    title="Replay alert beep"
-                  >
-                    <Play className="w-3 h-3" />
-                  </button>
+                  <span className="text-[10px] text-[#6B7684]">
+                    {new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
                 </div>
-                <button
-                  onClick={() => dismissToast(t.id)}
-                  className="px-2 text-[#8A96A0] hover:text-[#1A2126] self-start pt-2"
-                >
-                  <X className="w-3 h-3" />
-                </button>
+                <div className="px-3 py-2.5 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wide" style={{ color: lc }}>
+                      {t.riskType}
+                    </span>
+                    <span
+                      className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                      style={{ backgroundColor: `${lc}26`, color: lc }}
+                    >
+                      {t.riskLevel}
+                    </span>
+                  </div>
+                  <div className="bg-[#F7F8FA] rounded-[4px] border border-[#E3E7EC] px-2 py-1.5 text-[11px] text-[#1A2126]">
+                    <span className="text-[#6B7684]">Reading:</span>{' '}
+                    <span className="font-sensor-num">
+                      temp {t.temp}°C · smoke {t.smoke}
+                    </span>
+                    <span className="mx-2 text-[#E3E7EC]">|</span>
+                    <span className="text-[#6B7684]">Water:</span>{' '}
+                    <span className="font-sensor-num" style={{ color: lc }}>{t.water}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-[#1A2126] pt-0.5">
+                    <ShieldAlert className="w-3.5 h-3.5" style={{ color: lc }} />
+                    <span>
+                      <button
+                        onClick={() => { try { audioAlert.playBuzzerBeep(); } catch (_) {} }}
+                        className="text-[11px] font-semibold underline" style={{ color: lc }}
+                      >
+                        Replay buzzer
+                      </button>
+                    </span>
+                    <button
+                      onClick={() => dismissToast(t.id)}
+                      className="ml-auto w-5 h-5 rounded-full bg-[#F1F3F6] border border-[#E3E7EC] flex items-center justify-center text-[#6B7684] hover:text-[#D9364A]"
+                      title="Dismiss"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            </div>
+          );
+        })}
+      </div>
 
     </div>
   );
